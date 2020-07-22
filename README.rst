@@ -2,9 +2,9 @@
  API Documentation Tool
 ========================
 
-.. image:: https://travis-ci.org/Apipie/apipie-rails.png?branch=master
+.. image:: https://travis-ci.org/Apipie/apipie-rails.svg?branch=master
     :target: https://travis-ci.org/Apipie/apipie-rails
-.. image:: https://codeclimate.com/github/Apipie/apipie-rails.png
+.. image:: https://codeclimate.com/github/Apipie/apipie-rails.svg
     :target: https://codeclimate.com/github/Apipie/apipie-rails
 .. image:: https://badges.gitter.im/Apipie/apipie-rails.svg
    :alt: Join the chat at https://gitter.im/Apipie/apipie-rails
@@ -45,7 +45,7 @@ Now you can start documenting your resources and actions (see
 .. code:: ruby
 
    api :GET, '/users/:id'
-   param :id, :number
+   param :id, :number, desc: 'id of the requested user'
    def show
      # ...
    end
@@ -117,6 +117,9 @@ desc (also description and full_description)
 param
   Common params for all methods defined in controller/child controllers.
 
+returns
+  Common responses for all methods defined in controller/child controllers.
+
 api_base_url
   What URL is the resource available under.
 
@@ -136,6 +139,9 @@ app_info
 meta
   Hash or array with custom metadata.
 
+deprecated
+  Boolean value indicating if the resource is marked as deprecated. (Default false)
+
 Example:
 ~~~~~~~~
 
@@ -152,7 +158,12 @@ Example:
      api_version "development"
      error 404, "Missing"
      error 500, "Server crashed for some <%= reason %>", :meta => {:anything => "you can think of"}
+     error :unprocessable_entity, "Could not save the entity."
+     returns :code => 403 do
+        property :reason, String, :desc => "Why this was forbidden"
+     end
      meta :author => {:name => 'John', :surname => 'Doe'}
+     deprecated false
      description <<-EOS
        == Long description
         Example resource for rest api documentation
@@ -206,7 +217,16 @@ api_versions (also api_version)
   What version(s) does the action belong to. (See `Versioning`_ for details.)
 
 param
-  Look at Parameter description section for details.
+  Look at `Parameter description`_ section for details.
+
+returns
+  Look at `Response description`_ section for details.
+
+tags
+  Adds tags for grouping operations together in Swagger outputs. See `swagger`_
+  for more details. You can also provide tags in the `Resource Description`_
+  block so that they are automatically prepended to all action tags in the
+  controller.
 
 formats
   Method level request / response formats.
@@ -256,6 +276,15 @@ Example:
      val == "param value" ? true : "The only good value is 'param value'."
    }, :desc => "proc validator"
    param :param_with_metadata, String, :desc => "", :meta => [:your, :custom, :metadata]
+   returns :code => 200, :desc => "a successful response" do
+      property :value1, String, :desc => "A string value"
+      property :value2, Integer, :desc => "An integer value"
+      property :value3, Hash, :desc => "An object" do
+        property :enum1, ['v1', 'v2'], :desc => "One of 2 possible string values"
+      end
+   end
+   tags %w[profiles logins]
+   tags 'more', 'related', 'resources'
    description "method description"
    formats ['json', 'jsonp', 'xml']
    meta :message => "Some very important info"
@@ -265,7 +294,6 @@ Example:
    def show
      #...
    end
-
 
 Parameter Description
 ---------------------
@@ -288,6 +316,9 @@ required
 allow_nil
   Setting this to true means that ``nil`` can be passed.
 
+allow_blank
+  Like ``allow_nil``, but for blank values. ``false``, ``""``, ``' '``, ``nil``, ``[]``, and ``{}`` are all blank.
+
 as
   Used by the processing functionality to change the name of a key params.
 
@@ -300,6 +331,13 @@ show
 missing_message
   Specify the message to be returned if the parameter is missing as a string or Proc.
   Defaults to ``Missing parameter #{name}`` if not specified.
+
+only_in
+   This can be set to ``:request`` or ``:response``.
+   Setting to ``:response`` causes the param to be ignored when used as part of a request description.
+   Setting to ``:request`` causes this param to be ignored when used as part of a response description.
+   If ``only_in`` is not specified, the param definition is used for both requests and responses.
+   (Note that the keyword ``property`` is similar to ``param``, but it has a ``:only_in => :response`` default).
 
 Example:
 ~~~~~~~~
@@ -421,6 +459,291 @@ with ``allow_nil`` set explicitly don't have this value changed.
 Action awareness is inherited from ancestors (in terms of
 nested params).
 
+
+Response Description
+--------------------
+
+The response from an API call can be documented by adding a ``returns`` statement to the method
+description.  This is especially useful when using Apipie to auto-generate a machine-readable Swagger
+definition of your API (see the `swagger`_ section for more details).
+
+A ``returns`` statement has several possible formats:
+
+.. code:: ruby
+
+    # format #1:  reference to a param-group
+    returns <param-group-name> [, :code => <number>|<http-response-code-symbol>] [, :desc => <human-readable description>]
+
+    # format #2:  inline response definition
+    returns :code => <number>|<http-response-code-symbol> [, :desc => <human-readable description>] do
+        # property ...
+        # property ...
+        # param_group ...
+    end
+
+    # format #3:  describing an array-of-objects response
+    returns :array_of => <param-group-name> [, :code => <number>|<http-response-code-symbol>] [, :desc => <human-readable description>]
+
+
+If the ``:code`` argument is ommitted, ``200`` is used.
+
+
+Example
+~~~~~~~
+
+.. code:: ruby
+
+  # ------------------------------------------------
+  # Example of format #1 (reference to param-group):
+  # ------------------------------------------------
+  # the param_group :pet is defined here to describe the output returned by the method below.
+  def_param_group :pet do
+    property :pet_name, String, :desc => "Name of pet"
+    property :animal_type, ['dog','cat','iguana','kangaroo'], :desc => "Type of pet"
+  end
+
+  api :GET, "/pets/:id", "Get a pet record"
+  returns :pet, :desc => "The pet"
+  def show_detailed
+    render JSON({:pet_name => "Skippie", :animal_type => "kangaroo"})
+  end
+
+  # ------------------------------------------------
+  # Example of format #2 (inline):
+  # ------------------------------------------------
+  api :GET, "/pets/:id/with-extra-details", "Get a detailed pet record"
+  returns :code => 200, :desc => "Detailed info about the pet" do
+    param_group :pet
+    property :num_legs, Integer, :desc => "How many legs the pet has"
+  end
+  def show
+    render JSON({:pet_name => "Barkie", :animal_type => "iguana", :legs => 4})
+  end
+
+  # ------------------------------------------------
+  # Example of format #3 (array response):
+  # ------------------------------------------------
+  api :GET, "/pets", "Get all pet records"
+  returns :array_of => :pet, :code => 200, :desc => "All pets"
+  def index
+    render JSON([ {:pet_name => "Skippie", :animal_type => "kangaroo"},
+                  {:pet_name => "Woofie", :animal_type => "cat"} ])
+  end
+
+
+Note the use of the ``property`` keyword rather than ``param``.  This is the
+preferred mechanism for documenting response-only fields.
+
+
+The Property keyword
+::::::::::::::::::::::::::::::::::::::::::::::::
+
+``property`` is very similar to ``param`` with the following differences:
+
+* a ``property`` is ``:only_in => :response`` by default
+
+* a ``property`` is ``:required => :true`` by default
+
+* a ``property`` can be an ``:array_of`` objects
+
+Example
+_______
+.. code:: ruby
+
+    property :example, :array_of => Hash do
+      property :number1, Integer
+      property :number2, Integer
+    end
+
+
+Describing multiple return codes
+::::::::::::::::::::::::::::::::::::::::::::::::
+
+To describe multiple possible return codes, the ``:returns`` keyword can be repeated as many times as necessary
+(once for each return code).  Each one of the ``:returns`` entries can specify a different response format.
+
+Example
+_______
+
+.. code:: ruby
+
+    api :GET, "/pets/:id/extra_info", "Get extra information about a pet"
+      returns :desc => "Found a pet" do
+        param_group :pet
+        property 'pet_history', Hash do
+          param_group :pet_history
+        end
+      end
+      returns :code => :unprocessable_entity, :desc => "Fleas were discovered on the pet" do
+        param_group :pet
+        property :num_fleas, Integer, :desc => "Number of fleas on this pet"
+      end
+      def show_extra_info
+        # ... implementation here
+      end
+
+
+
+Reusing a param_group to describe inputs and outputs
+::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+In many cases (such as CRUD implementations), the output from certain API calls is very similar - but not
+identical - to the inputs of the same or other API calls.
+
+If you already have a ``:param_group`` that defines the input to a `create` or `update` routine, it would be quite
+frustrating to have to define a completely separate ``:param_group`` to describe the output of the `show` routine.
+
+To address such situations, it is possible to define a single ``:param_group`` which combines ``param`` and ``property``
+statements (as well as ``:only_in => :request`` / ``:only_in => :response``) to differentiate between fields that are
+only expected in the request, only included in the response, or common to both.
+
+This is somewhat analogous to the way `Action Aware params`_ work.
+
+Example
+_______
+
+.. code:: ruby
+
+    def_param_group :user_record
+        param :name, String                                         # this is commong to both the request and the response
+        param :force_update, [true, false], :only_in => :request    # this does not show up in responses
+        property :last_login, String                                # this shows up only in the response
+    end
+
+   api :POST, "/users", "Create a user"
+   param_group :user_record  # the :last_login field is not expected here, but :force_update is
+   def create
+     # ...
+   end
+
+   api :GET, "/users", "Create a user"
+   returns :array_of => :user_record  # the :last_login field will be included in the response, but :force_update will not
+   def index
+     # ...
+   end
+
+
+Embedded response descriptions
+::::::::::::::::::::::::::::::
+
+If the code creating JSON responses is encapsulated within dedicated classes, it can be more convenient to
+place the response descriptions outside of the controller and embed them within the response generator.
+
+To support such use cases, Apipie allows any class to provide a `describe_own_properties` class method which
+returns a description of the properties such a class would expose.  It is then possible to specify that
+class in the `returns` statement instead of a `param_group`.
+
+The `describe_own_properties` method is expected to return an array of `Apipie::prop` objects, each one
+describing a single property.
+
+Example
+_______
+
+.. code:: ruby
+
+    class Pet
+      # this method is automatically called by Apipie when Pet is specified as the returned object type
+      def self.describe_own_properties
+        [
+            Apipie::prop(:pet_name, 'string', {:description => 'Name of pet', :required => false}),
+            Apipie::prop(:animal_type, 'string', {:description => 'Type of pet', :values => ["dog", "cat", "iguana", "kangaroo"]}),
+            Apipie::additional_properties(false)  # this indicates that :pet_name and :animal_type are the only properties in the response
+        ]
+      end
+
+      # this method w
+      def json
+        JSON({:pet_name => @name, :animal_type => @type })
+      end
+    end
+
+
+    class PetsController
+        api :GET, "/index", "Get all pets"
+        returns :array_of => Pet  # Pet is a 'self-describing-class'
+        def index
+         # ...
+        end
+    end
+
+
+A use case where this is very useful is when JSON generation is done using a reflection mechanism or some
+other sort of declarative mechanism.
+
+
+
+
+The `Apipie::prop` function expects the following inputs:
+
+.. code:: ruby
+
+    Apipie::prop(<property-name>, <property-type>, <options-hash> [, <array of sub-properties>])
+
+    # property-name should be a symbol
+    #
+    # property-type can be any of the following strings:
+    #   "integer": maps to a swagger "integer" with an "int32" format
+    #   "long": maps to a swagger "integer" with an "int64" format
+    #   "number": maps to a swagger "number"(no format specifier)
+    #   "float": maps to a swagger "number" with a "float" format
+    #   "double": maps to a swagger "number" with a "double" format
+    #   "string": maps to a swagger "string" (no format specifier)
+    #   "byte": maps to a swagger "string" with a "byte" format
+    #   "binary": maps to a swagger "string" with a "binary" format
+    #   "boolean": maps to a swagger "boolean" (no format specifier)
+    #   "date": maps to a swagger "string" with a "date" format
+    #   "dateTime": maps to a swagger "string" with a "date-time" format
+    #   "password": maps to a swagger "string" with a "password" format
+    #   "object": the property has sub-properties. include <array of sub-properties> in the call.
+    # (see https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#data-types for more information
+    # about the mapped swagger types)
+    #
+    # options-hash can include any of the options fields allowed in a :returns statement.
+    # additionally, it can include the ':is_array => true', in which case the property is understood to be
+    # an array of the described type.
+
+
+
+To describe an embedded object:
+
+.. code:: ruby
+
+
+    #
+    # PetWithMeasurements is a self-describing class with an embedded object
+    #
+    class PetWithMeasurements
+      def self.describe_own_properties
+        [
+            Apipie::prop(:pet_name, 'string', {:description => 'Name of pet', :required => false}),
+            Apipie::prop('animal_type', 'string', {:description => 'Type of pet', :values => ["dog", "cat", "iguana", "kangaroo"]}),
+            Apipie::prop(:pet_measurements, 'object', {}, [
+                Apipie::prop(:weight, 'number', {:description => "Weight in pounds" }),
+                Apipie::prop(:height, 'number', {:description => "Height in inches" }),
+                Apipie::prop(:num_legs, 'number', {:description => "Number of legs", :required => false }),
+                Apipie::additional_properties(false)
+            ])
+        ]
+      end
+    end
+
+    #
+    # PetWithManyMeasurements is a self-describing class with an embedded array of objects
+    #
+    class PetWithManyMeasurements
+      def self.describe_own_properties
+        [
+            Apipie::prop(:pet_name, 'string', {:description => 'Name of pet', :required => false}),
+            Apipie::prop(:many_pet_measurements, 'object', {is_array: true}, [
+                Apipie::prop(:weight, 'number', {:description => "Weight in pounds" }),
+                Apipie::prop(:height, 'number', {:description => "Height in inches" }),
+            ])
+        ]
+      end
+    end
+
+
+
 Concerns
 --------
 
@@ -500,6 +823,103 @@ Example
    end
 
 
+Sometimes, it's needed to extend an existing controller method with additional
+parameters (usually when extending exiting API from plugins/rails engines).
+The concern can be also used for this purposed, using `update_api` method.
+The params defined in this block are merged with the params of the original method
+in the controller this concern is included to.
+
+Example
+~~~~~~~
+
+.. code:: ruby
+
+   module Concerns
+     module OauthConcern
+       extend Apipie::DSL::Concern
+
+       update_api(:create, :update) do
+         param :user, Hash do
+           param :oauth, String, :desc => 'oauth param'
+         end
+       end
+     end
+   end
+
+The concern needs to be included to the controller after the methods are defined
+(either at the end of the class, or by using
+``Controller.send(:include, Concerns::OauthConcern)``.
+
+
+Response validation
+-------------------
+
+The swagger definitions created by Apipie can be used to auto-generate clients that access the
+described APIs.  Those clients will break if the responses returned from the API do not match
+the declarations.  As such, it is very important to include unit tests that validate the actual
+responses against the swagger definitions.
+
+The implemented mechanism provides two ways to include such validations in RSpec unit tests:
+manual (using an RSpec matcher) and automated (by injecting a test into the http operations 'get', 'post',
+raising an error if there is no match).
+
+Example of the manual mechanism:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code:: ruby
+
+  require 'apipie/rspec/response_validation_helper'
+
+  RSpec.describe MyController, :type => :controller, :show_in_doc => true do
+
+    describe "GET stuff with response validation" do
+      render_views   # this makes sure the 'get' operation will actually
+                     # return the rendered view even though this is a Controller spec
+
+      it "does something" do
+        response = get :index, {format: :json}
+
+        # the following expectation will fail if the returned object
+        # does not match the 'returns' declaration in the Controller,
+        # or if there is no 'returns' declaration for the returned
+        # HTTP status code
+        expect(response).to match_declared_responses
+      end
+    end
+  end
+
+
+Example of the automated mechanism:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code:: ruby
+
+  require 'apipie/rspec/response_validation_helper'
+
+  RSpec.describe MyController, :type => :controller, :show_in_doc => true do
+
+    describe "GET stuff with response validation" do
+      render_views
+      auto_validate_rendered_views
+
+      it "does something" do
+        get :index, {format: :json}
+      end
+      it "does something else" do
+        get :another_index, {format: :json}
+      end
+    end
+
+    describe "GET stuff without response validation" do
+      it "does something" do
+        get :index, {format: :json}
+      end
+      it "does something else" do
+        get :another_index, {format: :json}
+      end
+    end
+  end
+
 
 =========================
  Configuration Reference
@@ -516,6 +936,9 @@ app_name
 copyright
   Copyright information (shown in page footer).
 
+compress_examples
+  If ``true`` recorded examples are compressed using ``Zlib``. Useful for big test-suits.
+
 doc_base_url
   Documentation frontend base url.
 
@@ -528,7 +951,7 @@ default_version
 validate
   Parameters validation is turned off when set to false. When set to
   ``:explicitly``, you must invoke parameter validation yourself by calling
-  controller method ``apipie_validations`` (typically in a before_filter).
+  controller method ``apipie_validations`` (typically in a before_action).
   When set to ``:implicitly`` (or just true), your controller's action
   methods are wrapped with generated methods which call ``apipie_validations``,
   and then call the action method. (``:implicitly`` by default)
@@ -726,17 +1149,17 @@ is raised and can be rescued and processed. It contains a description
 of the parameter value expectations. Validations can be turned off
 in the configuration file.
 
-Parameter validation normally happens after before_filters, just before
+Parameter validation normally happens after before_actions, just before
 your controller method is invoked. If you prefer to control when parameter
 validation occurs, set the configuration parameter ``validate`` to ``:explicitly``.
 You must then call the ``apipie_validations`` method yourself, e.g.:
 
 .. code:: ruby
 
-   before_filter: :apipie_validations
+   before_action :apipie_validations
 
-This is useful if you have before_filters which use parameter values: just add them
-after the ``apipie_validations`` before_filter.
+This is useful if you have before_actions which use parameter values: just add them
+after the ``apipie_validations`` before_action.
 
 TypeValidator
 -------------
@@ -813,6 +1236,26 @@ override parameters described on the resource level.
    def destroy
      #...
    end
+
+NumberValidator
+---------------
+
+Check if the parameter is a positive integer number or zero
+
+.. code:: ruby
+
+  param :product_id, :number, :desc => "Identifier of the product", :required => true
+  param :quantity, :number, :desc => "Number of products to order", :required => true
+
+DecimalValidator
+--------------
+
+Check if the parameter is a decimal number
+
+.. code:: ruby
+
+  param :latitude, :decimal, :desc => "Geographic latitude", :required => true
+  param :longitude, :decimal, :desc => "Geographic longitude", :required => true
 
 ArrayValidator
 --------------
@@ -995,7 +1438,7 @@ the default version is used instead.
 ========
 
 The default markup language is `RDoc
-<http://rdoc.rubyforge.org/RDoc/Markup.html>`_. It can be changed in
+<https://rdoc.github.io/rdoc/RDoc/Markup.html>`_. It can be changed in
 the config file (``config.markup=``) to one of these:
 
 Markdown
@@ -1068,11 +1511,8 @@ When your project use I18n, localization related configuration could appear as f
     config.default_locale = 'en'
     config.locale = lambda { |loc| loc ? I18n.locale = loc : I18n.locale }
     config.translate = lambda do |str, loc|
-      old_loc = I18n.locale
-      I18n.locale = loc
-      trans = I18n.t(str)
-      I18n.locale = old_loc
-      trans
+      return '' if str.blank?
+      I18n.t str, locale: loc, scope: 'doc'
     end
    end
 
@@ -1122,6 +1562,119 @@ you can change it to where you want, example: ``config.cache_dir = File.join(Rai
 If, for some complex cases, you need to generate/re-generate just part of the cache
 use ``rake apipie:cache cache_part=index`` resp. ``rake apipie:cache cache_part=resources``
 To generate it for different locations for further processing use ``rake apipie:cache OUT=/tmp/apipie_cache``.
+
+.. _Swagger:
+
+====================================
+ Static Swagger (OpenAPI 2.0) files
+====================================
+
+To generate a static Swagger definition file from the api, run ``rake apipie:static_swagger_json``.
+By default the documentation for the default API version is
+used. You can specify the version with ``rake apipie:static_swagger_json[2.0]``. A swagger file will be
+generated for each locale.  The files will be generated in the same location as the static_json files, but
+instead of being named ``schema_apipie[.locale].json``, they will be called ``schema_swagger[.locale].json``.
+
+Specifying default values for parameters
+-----------------------------------------
+Swagger allows method definitions to include an indication of the the default value for each parameter. To include such
+indications, use ``:default_value => <some value>`` in the parameter definition DSL.  For example:
+
+.. code:: ruby
+
+     param :do_something, Boolean, :desc => "take an action", :required => false, :default_value => false
+
+
+Generated Warnings
+-------------------
+The help identify potential improvements to your documentation, the swagger generation process issues warnings if
+it identifies various shortcomings of the DSL documentation. Each warning has a code to allow selective suppression
+(see swagger-specific configuration below)
+
+:100: missing short description for method
+:101: added missing / at beginning of path
+:102: no return codes specified for method
+:103: a parameter is a generic Hash without an internal type specification
+:104: a parameter is an 'in-path' parameter, but specified as 'not required' in the DSL
+:105: a parameter is optional but does not have a default value specified
+:106: a parameter was ommitted from the swagger output because it is a Hash without fields in a formData specification
+:107: a path parameter is not described
+:108: inferring that a parameter type is boolean because described as an enum with [false,true] values
+
+
+
+Swagger-Specific Configuration Parameters
+-------------------------------------------------
+
+There are several configuration parameters that determine the structure of the generated swagger file:
+
+``config.swagger_content_type_input``
+    If the value is ``:form_data`` - the swagger file will indicate that the server consumes the content types
+    ``application/x-www-form-urlencoded`` and ``multipart/form-data``.  Non-path parameters will have the
+    value ``"in": "formData"``.  Note that parameters of type Hash that do not have any fields in them will *be ommitted*
+    from the resulting files, as there is no way to describe them in swagger.
+
+    If the value is ``:json`` - the swagger file will indicate that the server consumes the content type
+    ``application/json``. All non-path parameters will be included in the schema of a single ``"in": "body"`` parameter
+    of type ``object``.
+
+    You can specify the value of this configuration parameter as an additional input to the rake command (e.g.,
+    ``rake apipie:static_swagger_json[2.0,form_data]``).
+
+``config.swagger_json_input_uses_refs``
+    This parameter is only relevant if ``swagger_content_type_input`` is ``:json``.
+
+    If ``true``: the schema of the ``"in": "body"`` parameter of each method is given its own entry in the ``definitions``
+    section, and is referenced using ``$ref`` from the method definition.
+
+    If ``false``: the body parameter definitions are inlined within the method definitions.
+
+``config.swagger_include_warning_tags``
+    If ``true``: in addition to tagging methods with the name of the resource they belong to, methods for which warnings
+    have been issued will be tagged with.
+
+``config.swagger_suppress_warnings``
+    If ``false``: no warnings will be suppressed
+
+    If ``true``: all warnings will be suppressed
+
+    If an array of values (e.g., ``[100,102,107]``), only the warnings identified by the numbers in the array will be suppressed.
+
+``config.swagger_api_host``
+    The value to place in the swagger host field.
+
+    Default is ``localhost:3000``
+
+    If ``nil`` then then host field will not be included.
+
+``config.swagger_allow_additional_properties_in_response``
+    If ``false`` (default):  response descriptions in the generated swagger will include an ``additional-properties: false``
+    field
+
+    If ``true``:  the ``additional-properties: false`` field will not be included in response object descriptions
+
+
+Known limitations of the current implementation
+-------------------------------------------------
+* There is currently no way to document the structure and content-type of the data returned from a method
+* Recorded examples are currently not included in the generated swagger file
+* The apipie ``formats`` value is ignored.
+* It is not possible to specify the "consumed" content type on a per-method basis
+* It is not possible to leverage all of the parameter type/format capabilities of swagger
+* Only OpenAPI 2.0 is supported
+* Responses are defined inline and not as a $ref
+
+====================================
+ Dynamic Swagger generation
+====================================
+
+To generate swagger dynamically, use ``http://localhost:3000/apipie.json?type=swagger``.
+
+Note that authorization is not supported for dynamic swagger generation, so if ``config.authorize`` is defined,
+dynamic swagger generation will be disabled.
+
+Dynamically generated swagger is not cached, and is always generated on the fly.
+
 
 ===================
  JSON checksums
@@ -1230,7 +1783,7 @@ one example per method) by adding a 'title' attribute.
          - recorded: true
 
 In RSpec you can add metadata to examples. We can use that feature
-to mark selected examples – the ones that perform the requests that we want to
+to mark selected examples - the ones that perform the requests that we want to
 show as examples in the documentation.
 
 For example, we can add ``show_in_doc`` to examples, like this:

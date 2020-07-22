@@ -13,13 +13,13 @@ module Apipie
         @query = env["QUERY_STRING"] unless env["QUERY_STRING"].blank?
         @params = Rack::Utils.parse_nested_query(@query)
         @params.merge!(env["action_dispatch.request.request_parameters"] || {})
-        
-        if data = parse_data(env["rack.input"].read)
+        rack_input = env["rack.input"]
+        if data = parse_data(rack_input.read)
           @request_data = data
-          env["rack.input"].rewind
         elsif form_hash = env["rack.request.form_hash"]
           @request_data = reformat_multipart_data(form_hash)
         end
+        rack_input.rewind
       end
 
       def analyse_controller(controller)
@@ -29,7 +29,11 @@ module Apipie
 
       def analyse_response(response)
         if response.last.respond_to?(:body) && data = parse_data(response.last.body)
-          @response_data = data
+          @response_data = if response[1]['Content-Disposition'].to_s.start_with?('attachment')
+                             '<STREAMED ATTACHMENT FILE>'
+                           else
+                             data
+                           end
         end
         @code = response.first
       end
@@ -39,7 +43,7 @@ module Apipie
         @verb = request.request_method.to_sym
         @path = request.path
         @params = request.request_parameters
-        if [:POST, :PUT, :PATCH].include?(@verb)
+        if [:POST, :PUT, :PATCH, :DELETE].include?(@verb)
           if request.content_type == "multipart/form-data"
             @request_data = reformat_multipart_data(@params)
           else
@@ -53,9 +57,9 @@ module Apipie
       end
 
       def parse_data(data)
-        return nil if data.to_s =~ /^\s*$/
+        return nil if data.strip.blank?
         JSON.parse(data)
-      rescue StandardError => e
+      rescue StandardError
         data
       end
 
@@ -91,19 +95,19 @@ module Apipie
           attrs.each { |k,v| v.is_a?(Hash) and reformat_hash(boundary, v, lines) }
         end
       end
-      
+
       def reformat_boolean(boundary, attrs, key, lines)
         lines << boundary << content_disposition(key)
         lines << '' << attrs.to_s
       end
-      
+
       def reformat_array(boundary, attrs, key, lines)
         attrs.each do |item|
           lines << boundary << content_disposition("#{key}[]")
           lines << '' << item
         end
       end
-      
+
       def reformat_uploadedfile(boundary, file, key, lines)
         lines << boundary << %{#{content_disposition(key)}; filename="#{file.original_filename}"}
         lines << "Content-Length: #{file.size}" << "Content-Type: #{file.content_type}" << "Content-Transfer-Encoding: binary"
@@ -174,12 +178,8 @@ module Apipie
       end
 
       module FunctionalTestRecording
-        def self.included(base)
-          base.alias_method_chain :process, :api_recording
-        end
-
-        def process_with_api_recording(*args) # action, parameters = nil, session = nil, flash = nil, http_method = 'GET')
-          ret = process_without_api_recording(*args)
+        def process(*args) # action, parameters = nil, session = nil, flash = nil, http_method = 'GET')
+          ret = super(*args)
           if Apipie.configuration.record
             Apipie::Extractor.call_recorder.analyze_functional_test(self)
             Apipie::Extractor.call_finished

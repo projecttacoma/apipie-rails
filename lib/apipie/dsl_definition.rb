@@ -2,11 +2,19 @@
 
 module Apipie
 
-  # DSL is a module that provides #api, #error, #param, #error.
+  # DSL is a module that provides #api, #error, #param, #returns.
   module DSL
 
     module Base
       attr_reader :apipie_resource_descriptions, :api_params
+
+      def _apipie_eval_dsl(*args, &block)
+        raise 'The Apipie DLS data need to be cleared before evaluating new block' if @_apipie_dsl_data
+        instance_exec(*args, &block)
+        return _apipie_dsl_data
+      ensure
+        _apipie_dsl_data_clear
+      end
 
       private
 
@@ -24,9 +32,11 @@ module Apipie
          :api_args          => [],
          :api_from_routes   => nil,
          :errors            => [],
+         :tag_list          => [],
+         :returns           => {},
          :params            => [],
          :headers           => [],
-         :resouce_id        => nil,
+         :resource_id       => nil,
          :short_description => nil,
          :description       => nil,
          :examples          => [],
@@ -34,7 +44,8 @@ module Apipie
          :formats           => nil,
          :api_versions      => [],
          :meta              => nil,
-         :show              => true
+         :show              => true,
+         :deprecated        => false
        }
       end
     end
@@ -68,6 +79,11 @@ module Apipie
       def app_info(app_info)
         _apipie_dsl_data[:app_info] = app_info
       end
+
+      def deprecated(value)
+        _apipie_dsl_data[:deprecated] = value
+      end
+
     end
 
     module Action
@@ -207,6 +223,13 @@ module Apipie
         _apipie_dsl_data[:errors] << [code_or_options, desc, options]
       end
 
+      # Add tags to resources and actions group operations together.
+      def tags(*args)
+        return unless Apipie.active_dsl?
+        tags = args.length == 1 ? args.first : args
+        _apipie_dsl_data[:tag_list] += tags
+      end
+
       def _apipie_define_validators(description)
 
         # [re]define method only if validation is turned on
@@ -237,7 +260,7 @@ module Apipie
               # Only allow params passed in that are defined keys in the api
               # Auto skip the default params (format, controller, action)
               if Apipie.configuration.validate_key?
-                params.reject{|k,_| %w[format controller action].include?(k.to_s) }.each_key do |param|
+                params.reject{|k,_| %w[format controller action].include?(k.to_s) }.each_pair do |param, _|
                   # params allowed
                   raise UnknownParam.new(param) if method_params.select {|_,p| p.name.to_s == param.to_s}.empty?
                 end
@@ -295,6 +318,7 @@ module Apipie
       end
     end
 
+
     # this describes the params, it's in separate module because it's
     # used in Validators as well
     module Param
@@ -313,6 +337,13 @@ module Apipie
                                       desc_or_options,
                                       options.merge(:param_group => @_current_param_group),
                                       block]
+      end
+
+      def property(param_name, validator, desc_or_options = nil, options = {}, &block) #:doc:
+        return unless Apipie.active_dsl?
+        options[:only_in] ||= :response
+        options[:required] = true if options[:required].nil?
+        param(param_name, validator, desc_or_options, options, &block)
       end
 
       # Reuses param group for this method. The definition is looked up
@@ -338,6 +369,65 @@ module Apipie
         self.instance_exec(&Apipie.get_param_group(scope, name))
       ensure
         @_current_param_group = nil
+      end
+
+      # Describe possible responses
+      #
+      # Example:
+      #     def_param_group :user do
+      #       param :user, Hash do
+      #         param :name, String
+      #       end
+      #     end
+      #
+      #   returns :user, "the speaker"
+      #   returns "the speaker" do
+      #        param_group: :user
+      #   end
+      #   returns :param_group => :user, "the speaker"
+      #   returns :user, :code => 201, :desc => "the created speaker record"
+      #   returns :array_of => :user, "many speakers"
+      #   def hello_world
+      #     render json: {user: {name: "Alfred"}}
+      #   end
+      #
+      def returns(pgroup_or_options, desc_or_options=nil, options={}, &block) #:doc:
+        return unless Apipie.active_dsl?
+
+
+        if desc_or_options.is_a? Hash
+          options.merge!(desc_or_options)
+        elsif !desc_or_options.nil?
+          options[:desc] = desc_or_options
+        end
+
+        if pgroup_or_options.is_a? Hash
+          options.merge!(pgroup_or_options)
+        else
+          options[:param_group] = pgroup_or_options
+        end
+
+        code = options[:code] || 200
+        scope = options[:scope] || _default_param_group_scope
+        descriptor = options[:param_group] || options[:array_of]
+
+        if block.nil?
+          if descriptor.is_a? ResponseDescriptionAdapter
+            adapter = descriptor
+          elsif descriptor.respond_to? :describe_own_properties
+            adapter = ResponseDescriptionAdapter.from_self_describing_class(descriptor)
+          else
+            begin
+              block = Apipie.get_param_group(scope, descriptor) if descriptor
+            rescue
+              raise "No param_group or self-describing class named #{descriptor}"
+            end
+          end
+        elsif descriptor
+          raise "cannot specify both block and param_group"
+        end
+
+        _apipie_dsl_data[:returns][code] = [options, scope, block, adapter]
       end
 
       # where the group definition should be looked up when no scope
@@ -380,6 +470,51 @@ module Apipie
       def apipie_concern_subst(subst_hash)
         _apipie_concern_subst.merge!(subst_hash)
       end
+
+      # Allows to update existing params after definition was made (usually needed
+      # when extending the API form plugins).
+      #
+      #     UsersController.apipie_update_params([:create, :update]) do
+      #       param :user, Hash do
+      #         param :oauth, String
+      #       end
+      #      end
+      #
+      # The block is evaluated in scope of the controller. Ohe can pass some additional
+      # objects via additional arguments like this:
+      #
+      #     UsersController.apipie_update_params([:create, :update], [:name, :secret]) do |param_names|
+      #       param :user, Hash do
+      #         param_names.each { |p| param p, String }
+      #       end
+      #      end
+      def _apipie_update_params(method_desc, dsl_data)
+        params_ordered = dsl_data[:params].map do |args|
+          Apipie::ParamDescription.from_dsl_data(method_desc, args)
+        end
+        ParamDescription.merge(method_desc.params_ordered_self, params_ordered)
+      end
+
+      def _apipie_update_meta(method_desc, dsl_data)
+        return unless dsl_data[:meta] && dsl_data[:meta].is_a?(Hash)
+
+        method_desc.metadata ||= {}
+        method_desc.metadata.merge!(dsl_data[:meta])
+      end
+
+      def apipie_update_methods(methods, *args, &block)
+        methods.each do |method|
+          method_desc = Apipie.get_method_description(self, method)
+          unless method_desc
+            raise "Could not find method description for #{self}##{method}. Was the method defined?"
+          end
+          dsl_data = _apipie_eval_dsl(*args, &block)
+          _apipie_update_params(method_desc, dsl_data)
+          _apipie_update_meta(method_desc, dsl_data)
+        end
+      end
+      # backwards compatibility
+      alias_method :apipie_update_params, :apipie_update_methods
 
       def _apipie_concern_subst
         @_apipie_concern_subst ||= {:controller_path => self.controller_path,
@@ -428,10 +563,17 @@ module Apipie
           description = Apipie.define_method_description(controller, method_name, _apipie_dsl_data)
           controller._apipie_define_validators(description)
         end
+        _apipie_concern_update_api_blocks.each do |(methods, block)|
+          controller.apipie_update_methods(methods, &block)
+        end
       end
 
       def _apipie_concern_data
         @_apipie_concern_data ||= []
+      end
+
+      def _apipie_concern_update_api_blocks
+        @_apipie_concern_update_api_blocks ||= []
       end
 
       def apipie_concern?
@@ -449,6 +591,10 @@ module Apipie
         _apipie_dsl_data_clear
       end
 
+      def update_api(*methods, &block)
+        _apipie_concern_update_api_blocks << [methods, block]
+      end
+
     end
 
     class ResourceDescriptionDsl
@@ -461,14 +607,9 @@ module Apipie
         @controller = controller
       end
 
-      def _eval_dsl(&block)
-        instance_eval(&block)
-        return _apipie_dsl_data
-      end
-
       # evaluates resource description DSL and returns results
       def self.eval_dsl(controller, &block)
-        dsl_data  = self.new(controller)._eval_dsl(&block)
+        dsl_data  = self.new(controller)._apipie_eval_dsl(&block)
         if dsl_data[:api_versions].empty?
           dsl_data[:api_versions] = Apipie.controller_versions(controller)
         end

@@ -192,15 +192,15 @@ class UsersController < ApplicationController
   end
   def show
     unless params[:session] == "secret_hash"
-      render :text => "Not authorized", :status => 401
+      render :plain => "Not authorized", :status => 401
       return
     end
 
     unless params[:id].to_i == 5
-      render :text => "Not Found", :status => 404 and return
+      render :plain => "Not Found", :status => 404 and return
     end
 
-    render :text => "OK"
+    render :plain => "OK"
   end
 
   def_param_group :credentials do
@@ -221,8 +221,10 @@ class UsersController < ApplicationController
     param :permalink, String
   end
   param :facts, Hash, :desc => "Additional optional facts about the user", :allow_nil => true
+  param :age, :number, :desc => "Age is just a number", :allow_blank => true
+  error :unprocessable_entity, 'Unprocessable Entity'
   def create
-    render :text => "OK #{params.inspect}"
+    render :plain => "OK #{params.inspect}"
   end
 
   api :PUT, "/users/:id", "Update an user"
@@ -231,13 +233,13 @@ class UsersController < ApplicationController
     param :comment, String
   end
   def update
-    render :text => "OK #{params.inspect}"
+    render :plain => "OK #{params.inspect}"
   end
 
   api :POST, "/users/admin", "Create admin user"
   param_group :user, :as => :create
   def admin_create
-    render :text => "OK #{params.inspect}"
+    render :plain => "OK #{params.inspect}"
   end
 
   api :GET, "/users", "List users"
@@ -247,14 +249,14 @@ class UsersController < ApplicationController
   param :oauth, nil,
         :desc => "Hide this global param (eg dont need auth here)"
   def index
-    render :text => "List of users"
+    render :plain => "List of users"
   end
 
   api :GET, '/company_users', 'Get company users'
   api :GET, '/company/:id/users', 'Get users working in given company'
   param :id, Integer, :desc => "Company ID"
   def two_urls
-    render :text => 'List of users'
+    render :plain => 'List of users'
   end
 
   api :GET, '/users/see_another', 'Boring method'
@@ -263,14 +265,19 @@ class UsersController < ApplicationController
   see 'development#users#index', "very interesting method reference"
   desc 'This method is boring, look at users#create.  It is hidden from documentation.'
   def see_another
-    render :text => 'This is very similar to create action'
+    render :plain => 'This is very similar to create action'
   end
 
+  api :GET, '/users/by_department', 'show users from a specific department'
+  param :department, ["finance", "operations", "sales", "marketing", "HR"], required: false, default_value: "sales"
+  def get_by_department
+    render :plain => 'nothing to see here'
+  end
 
   api :GET, '/users/desc_from_file', 'desc from file'
   document 'users/desc_from_file.md'
   def desc_from_file
-    render :text => 'document from file action'
+    render :plain => 'document from file action'
   end
 
   api! 'Create user'
@@ -284,7 +291,8 @@ class UsersController < ApplicationController
 
   api :GET, '/users/action_with_headers'
   header :RequredHeaderName, 'Required header description', required: true
-  header :OptionalHeaderName, 'Optional header description', required: false
+  header :OptionalHeaderName, 'Optional header description', required: false, type: 'string'
+  header :HeaderNameWithDefaultValue, 'Header with default value', required: true, default: 'default value'
   def action_with_headers
   end
 end

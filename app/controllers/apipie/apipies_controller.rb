@@ -5,8 +5,8 @@ module Apipie
 
     layout Apipie.configuration.layout
 
-    around_filter :set_script_name
-    before_filter :authenticate
+    around_action :set_script_name
+    before_action :authenticate
 
     def authenticate
       if Apipie.configuration.authenticate
@@ -14,10 +14,16 @@ module Apipie
       end
     end
 
+
     def index
       params[:version] ||= Apipie.configuration.default_version
 
       get_format
+
+      if params[:type].to_s == 'swagger' && params[:format].to_s == 'json'
+        head :forbidden and return if Apipie.configuration.authorize
+        should_render_swagger = true
+      end
 
       respond_to do |format|
 
@@ -31,9 +37,19 @@ module Apipie
         Apipie.load_documentation if Apipie.configuration.reload_controllers? || (Rails.version.to_i >= 4.0 && !Rails.application.config.eager_load)
 
         I18n.locale = @language
-        @doc = Apipie.to_json(params[:version], params[:resource], params[:method], @language)
 
-        @doc = authorized_doc
+        if should_render_swagger
+          prev_warning_value = Apipie.configuration.swagger_suppress_warnings
+          begin
+            Apipie.configuration.swagger_suppress_warnings = true
+            @doc = Apipie.to_swagger_json(params[:version], params[:resource], params[:method], @language)
+          ensure
+            Apipie.configuration.swagger_suppress_warnings = prev_warning_value
+          end
+        else
+          @doc = Apipie.to_json(params[:version], params[:resource], params[:method], @language)
+          @doc = authorized_doc
+        end
 
         format.json do
           if @doc
@@ -79,7 +95,8 @@ module Apipie
     helper_method :heading
 
     def get_language
-      lang = nil
+      return nil unless Apipie.configuration.translate
+      lang = Apipie.configuration.default_locale
       [:resource, :method, :version].each do |par|
         if params[par]
           splitted = params[par].split('.')
@@ -93,30 +110,44 @@ module Apipie
     end
 
     def authorized_doc
-
+      return if @doc.nil?
       return @doc unless Apipie.configuration.authorize
 
       new_doc = { :docs => @doc[:docs].clone }
 
-      new_doc[:docs][:resources] = @doc[:docs][:resources].select do |k, v|
-        if instance_exec(k, nil, v, &Apipie.configuration.authorize)
-          v[:methods] = v[:methods].select do |h|
-            instance_exec(k, h[:name], h, &Apipie.configuration.authorize)
-          end
-          true
-        else
-          false
+      new_doc[:docs][:resources] = if @doc[:docs][:resources].kind_of?(Array)
+        @doc[:docs][:resources].select do |resource|
+          authorize_resource(resource)
+        end
+      else
+        @doc[:docs][:resources].select do |_resource_name, resource|
+          authorize_resource(resource)
         end
       end
 
       new_doc
     end
 
+    def authorize_resource resource
+      if instance_exec(resource[:id], nil, resource, &Apipie.configuration.authorize)
+        resource[:methods] = resource[:methods].select do |m|
+          instance_exec(resource[:id], m[:name], m, &Apipie.configuration.authorize)
+        end
+        true
+      else
+        false
+      end
+    end
+
     def get_format
       [:resource, :method, :version].each do |par|
-        if params[par]
-          params[:format] = :html unless params[par].sub!('.html', '').nil?
-          params[:format] = :json unless params[par].sub!('.json', '').nil?
+        next unless params[par]
+        [:html, :json].each do |format|
+          extension = ".#{format}"
+          if params[par].include?(extension)
+            params[par] = params[par].sub(extension, '')
+            params[:format] = format
+          end
         end
       end
       request.format = params[:format] if params[:format]

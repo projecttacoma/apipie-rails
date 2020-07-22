@@ -10,17 +10,19 @@ module Apipie
   # id - resouce name
   # formats - acceptable request/response format types
   # headers - array of headers
+  # deprecated - boolean indicating if resource is deprecated
   class ResourceDescription
 
     attr_reader :controller, :_short_description, :_full_description, :_methods, :_id,
-      :_path, :_name, :_params_args, :_errors_args, :_formats, :_parent, :_metadata,
-      :_headers
+      :_path, :_name, :_params_args, :_returns_args, :_tag_list_arg, :_errors_args,
+      :_formats, :_parent, :_metadata, :_headers, :_deprecated
 
     def initialize(controller, resource_name, dsl_data = nil, version = nil, &block)
 
       @_methods = ActiveSupport::OrderedHash.new
       @_params_args = []
       @_errors_args = []
+      @_returns_args = []
 
       @controller = controller
       @_id = resource_name
@@ -39,9 +41,12 @@ module Apipie
       @_formats = dsl_data[:formats]
       @_errors_args = dsl_data[:errors]
       @_params_args = dsl_data[:params]
+      @_returns_args = dsl_data[:returns]
+      @_tag_list_arg = dsl_data[:tag_list]
       @_metadata = dsl_data[:meta]
       @_api_base_url = dsl_data[:api_base_url]
       @_headers = dsl_data[:headers]
+      @_deprecated = dsl_data[:deprecated] || false
 
       if dsl_data[:app_info]
         Apipie.configuration.app_info[_version] = dsl_data[:app_info]
@@ -101,6 +106,7 @@ module Apipie
 
       {
         :doc_url => doc_url,
+        :id => _id,
         :api_url => api_url,
         :name => @_name,
         :short_description => Apipie.app.translate(@_short_description, lang),
@@ -109,7 +115,8 @@ module Apipie
         :formats => @_formats,
         :metadata => @_metadata,
         :methods => methods,
-        :headers => _headers
+        :headers => _headers,
+        :deprecated => @_deprecated
       }
     end
 

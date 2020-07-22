@@ -8,6 +8,7 @@ require "action_mailer/railtie"
 
 Bundler.require
 require "apipie-rails"
+require "test_engine"
 
 module Dummy
   class Application < Rails::Application
@@ -41,5 +42,9 @@ module Dummy
 
     # Configure sensitive parameters which will be filtered from the log file.
     config.filter_parameters += [:password]
+
+    config.to_prepare do
+      ExtendedController.send(:include, Concerns::ExtendingConcern)
+    end
   end
 end

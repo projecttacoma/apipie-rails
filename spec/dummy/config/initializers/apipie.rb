@@ -1,12 +1,14 @@
 Apipie.configure do |config|
   config.app_name = "Test app"
   config.copyright = "&copy; 2012 Pavel Pokorny"
+  config.languages = ['en']
+  config.default_locale = 'en'
 
   # set default API version
   # can be overriden in resource_description
   # by default is it 1.0 if not specified anywhere
   # this must be defined before api_base_url and app_info
-  config.default_version = "development"
+  config.default_version = "development".freeze
 
   config.doc_base_url = "/apidoc"
 

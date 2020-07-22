@@ -13,6 +13,16 @@ module Apipie
         @param_description = param_description
       end
 
+      def inspected_fields
+        [:param_description]
+      end
+
+      def inspect
+        string = "#<#{self.class.name}:#{self.object_id} "
+        fields = inspected_fields.map {|field| "#{field}: #{self.send(field)}"}
+        string << fields.join(", ") << ">"
+      end
+
       def self.inherited(subclass)
         @validators ||= []
         @validators.insert 0, subclass
@@ -47,6 +57,10 @@ module Apipie
         "TODO: validator description"
       end
 
+      def format_description_value(value)
+        "<code>#{CGI::escapeHTML(value.to_s)}</code>"
+      end
+
       def error
         ParamInvalid.new(param_name, @error_value, description)
       end
@@ -67,13 +81,22 @@ module Apipie
       end
 
       def merge_with(other_validator)
-        raise NotImplementedError, "Dont know how to merge #{self.inspect} with #{other_validator.inspect}"
+        return self if self == other_validator
+        raise NotImplementedError, "Don't know how to merge #{self.inspect} with #{other_validator.inspect}"
       end
 
       def params_ordered
         nil
       end
 
+      def ==(other)
+        return false unless self.class == other.class
+        if param_description == other.param_description
+          true
+        else
+          false
+        end
+      end
     end
 
     # validate arguments type
@@ -96,7 +119,7 @@ module Apipie
       end
 
       def description
-        "Must be #{@type}"
+        "Must be a #{@type}"
       end
 
       def expected_type
@@ -106,6 +129,8 @@ module Apipie
           'array'
         elsif @type.ancestors.include? Numeric
           'numeric'
+        elsif @type.ancestors.include? File
+          'file'
         else
           'string'
         end
@@ -129,7 +154,7 @@ module Apipie
       end
 
       def description
-        "Must match regular expression <code>/#{@regexp.source}/</code>."
+        "Must match regular expression #{format_description_value("/#{@regexp.source}/")}."
       end
     end
 
@@ -148,8 +173,12 @@ module Apipie
         self.new(param_description, argument) if argument.is_a?(Array)
       end
 
+      def values
+        @array
+      end
+
       def description
-        string = @array.map { |value| "<code>#{value}</code>" }.join(', ')
+        string = @array.map { |value| format_description_value(value) }.join(', ')
         "Must be one of: #{string}."
       end
     end
@@ -202,7 +231,13 @@ module Apipie
 
       def has_valid_type?(value)
         if @items_type
-          value.kind_of?(@items_type)
+          item_validator = BaseValidator.find('', @items_type, nil, nil)
+
+          if item_validator
+            item_validator.valid?(value)
+          else
+            value.kind_of?(@items_type)
+          end
         else
           true
         end
@@ -243,7 +278,8 @@ module Apipie
       end
 
       def description
-        "Must be one of: #{@array.join(', ')}."
+        string = @array.map { |value| format_description_value(value) }.join(', ')
+        "Must be one of: #{string}."
       end
     end
 
@@ -375,6 +411,27 @@ module Apipie
       end
     end
 
+    class DecimalValidator < BaseValidator
+
+      def validate(value)
+        self.class.validate(value)
+      end
+
+      def self.build(param_description, argument, options, block)
+        if argument == :decimal
+          self.new(param_description)
+        end
+      end
+
+      def description
+        "Must be a decimal number."
+      end
+
+      def self.validate(value)
+        value.to_s =~ /\A^[-+]?[0-9]+([,.][0-9]+)?\Z$/
+      end
+    end
+
     class NumberValidator < BaseValidator
 
       def validate(value)
@@ -389,6 +446,10 @@ module Apipie
 
       def description
         "Must be a number."
+      end
+
+      def expected_type
+        'numeric'
       end
 
       def self.validate(value)
@@ -413,7 +474,8 @@ module Apipie
       end
 
       def description
-        "Must be 'true' or 'false' or '1' or '0'"
+        string = %w(true false 1 0).map { |value| format_description_value(value) }.join(', ')
+        "Must be one of: #{string}."
       end
     end
 
@@ -464,4 +526,3 @@ module Apipie
 
   end
 end
-

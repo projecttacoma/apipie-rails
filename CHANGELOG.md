@@ -1,6 +1,158 @@
-===========
  Changelog
 ===========
+
+[v0.5.17](https://github.com/Apipie/apipie-rails/tree/v0.5.18) (2020-05-20)
+--------
+
+[Full Changelog](https://github.com/Apipie/apipie-rails/compare/v0.5.17...v0.5.18)
+
+- Optional rdoc dependency with lazyload [\#683](https://github.com/Apipie/apipie-rails/pull/683) ([vkrizan](https://github.com/vkrizan))
+
+[v0.5.17](https://github.com/Apipie/apipie-rails/tree/v0.5.17) (2020-01-20)
+--------
+
+[Full Changelog](https://github.com/Apipie/apipie-rails/compare/v0.5.16...v0.5.17)
+
+- Allows update metadata for methods [\#667](https://github.com/Apipie/apipie-rails/pull/667) ([speckins](https://github.com/speckins))
+
+[v0.5.16](https://github.com/Apipie/apipie-rails/tree/v0.5.16) (2019-05-22)
+--------
+
+[Full Changelog](https://github.com/Apipie/apipie-rails/compare/v0.5.15...v0.5.16)
+
+- Load file directly instead of using Rails constant [\#665](https://github.com/Apipie/apipie-rails/pull/665) ([speckins](https://github.com/speckins))
+
+[v0.5.15](https://github.com/Apipie/apipie-rails/tree/v0.5.15) (2019-01-03)
+--------
+[Full Changelog](https://github.com/Apipie/apipie-rails/compare/v0.5.14...v0.5.15)
+
+
+- Fix authorization of resources [\#655](https://github.com/Apipie/apipie-rails/pull/655) ([NielsKSchjoedt](https://github.com/NielsKSchjoedt))
+- Use configured value when swagger\_content\_type\_input argument is not passed [\#648](https://github.com/Apipie/apipie-rails/pull/648) ([nullnull](https://github.com/nullnull))
+- Fix "ArgumentError: string contains null byte" on malformed stings [\#477](https://github.com/Apipie/apipie-rails/pull/477) ([avokhmin](https://github.com/avokhmin))
+
+v0.5.14
+-------
+- HTML escape validator values [\#645](https://github.com/Apipie/apipie-rails/pull/645) ([ekohl](https://github.com/ekohl))
+- Support for adding new params via `update\_api` [\#642](https://github.com/Apipie/apipie-rails/pull/642) ([iNecas](https://github.com/iNecas))
+- Allow the "null" JSON string to be used as a parameter in Apipie spec examples \(`show\_in\_doc`\) [\#641](https://github.com/Apipie/apipie-rails/pull/641) ([enrique-guillen](https://github.com/enrique-guillen))
+- Fix examples recording for specific cases  [\#640](https://github.com/Apipie/apipie-rails/pull/640) ([Marri](https://github.com/Marri))
+- Add description section to response [\#639](https://github.com/Apipie/apipie-rails/pull/639) ([X1ting](https://github.com/X1ting))
+
+
+v0.5.13
+-------
+-  Fix swagger generation if a controller's parent doesn't define a resource_description [\#637](https://github.com/Apipie/apipie-rails/pull/637) ([enrique-guillen](https://github.com/enrique-guillen))
+
+v0.5.12
+-------
+- Fix returns displaying [\#635](https://github.com/Apipie/apipie-rails/pull/635) ([X1ting](https://github.com/X1ting))
+
+v0.5.11
+-------
+
+- Adds swagger tags in swagger output [\#634](https://github.com/Apipie/apipie-rails/pull/634) ([enrique-guillen](https://github.com/enrique-guillen))
+- Generate swagger with headers [\#630](https://github.com/Apipie/apipie-rails/pull/630) ([Uysim](https://github.com/Uysim))
+- Fix examples not being generated for Rails < 5.0.0 [\#633](https://github.com/Apipie/apipie-rails/pull/633) ([RomanKapitonov](https://github.com/RomanKapitonov))
+
+v0.5.10
+------
+
+- Support response validation [\#626](https://github.com/Apipie/apipie-rails/pull/626) ([COzero](https://github.com/COzero))
+
+v0.5.9
+------
+
+- Support response validation [\#619](https://github.com/Apipie/apipie-rails/pull/619) ([abenari](https://github.com/abenari))
+- Expect :number to have type 'numeric' [\#614](https://github.com/Apipie/apipie-rails/pull/614) ([akofink](https://github.com/akofink))
+- New validator - DecimalValidator [\#431](https://github.com/Apipie/apipie-rails/pull/431) ([kiddrew](https://github.com/kiddrew))
+
+
+v0.5.8
+------
+
+- Swagger json includes apipie's description as swagger's description [\#615](https://github.com/Apipie/apipie-rails/pull/615) ([gogotanaka](https://github.com/gogotanaka))
+- Fix api! issue by using underscore when appending `controller` to the default controller string [\#613](https://github.com/Apipie/apipie-rails/pull/613) ([kevinmarx](https://github.com/kevinmarx))
+- Possibility to compress examples [\#600](https://github.com/Apipie/apipie-rails/pull/600) ([Haniyya](https://github.com/Haniyya))
+- Possibility to describe responses [\#588](https://github.com/Apipie/apipie-rails/pull/588) ([elasti-ron](https://github.com/elasti-ron))
+
+v0.5.7
+------
+
+- Fix example recording with Rails 5 [\#607](https://github.com/Apipie/apipie-rails/pull/607) ([adamruzicka](https://github.com/adamruzicka))
+- Use SHA1 instead of MD5 to enable using APIPIE at FIPS-enables systems [\#605](https://github.com/Apipie/apipie-rails/pull/605) ([iNecas](https://github.com/iNecas))
+- Replaced String\#constantize with String\#safe\_constantize so apipie won't break on a missing constant [\#575](https://github.com/Apipie/apipie-rails/pull/575) ([Haniyya](https://github.com/Haniyya))
+- Added Swagger generation [\#569](https://github.com/Apipie/apipie-rails/pull/569) ([elasti-ron](https://github.com/elasti-ron))
+
+v0.5.6
+------
+
+- Prevent missing translation span in title [\#571](https://github.com/Apipie/apipie-rails/pull/571) ([mbacovsky](https://github.com/mbacovsky))
+- Clean up old generator code for CLI [\#572](https://github.com/Apipie/apipie-rails/pull/572) ([voxik](https://github.com/voxik))
+- Added french locale [\#568](https://github.com/Apipie/apipie-rails/pull/568) ([giglemad](https://github.com/giglemad))
+
+v0.5.5
+------
+
+- prevent lang in url when config.translate is false [\#562](https://github.com/Apipie/apipie-rails/pull/562) ([markmoser](https://github.com/markmoser))
+- Allow for resource-level deprecations [\#567](https://github.com/Apipie/apipie-rails/pull/567) ([cross-p6](https://github.com/cross-p6))
+
+v0.5.4
+------
+
+- Constantize controller class before calling superclass [\#558](https://github.com/Apipie/apipie-rails/pull/558) ([ydkn](https://github.com/ydkn))
+
+v0.5.3
+------
+
+- Fix reloading when extending the apidoc from concern [\#557](https://github.com/Apipie/apipie-rails/pull/557) ([iNecas](https://github.com/iNecas))
+- Fix example recording when using send\_file [\#504](https://github.com/Apipie/apipie-rails/pull/504) ([tdeo](https://github.com/tdeo))
+
+v0.5.2
+------
+
+- A way to extend an exiting API via concern [\#554](https://github.com/Apipie/apipie-rails/pull/554) ([iNecas](https://github.com/iNecas))
+- Fallback to apipie views when application override isn't present [\#552](https://github.com/Apipie/apipie-rails/pull/552) ([tstrachota](https://github.com/tstrachota))
+- Updated setting default locale for api documentation [\#543](https://github.com/Apipie/apipie-rails/pull/543) ([DmitryKK](https://github.com/DmitryKK))
+
+v0.5.1
+------
+
+- Use AD::Reloader on Rails 4, app.reloader only on Rails 5+ [\#541](https://github.com/Apipie/apipie-rails/pull/541) ([domcleal](https://github.com/domcleal))
+- Recognize Rack Symbols as Status Codes [\#468](https://github.com/Apipie/apipie-rails/pull/468)([alex-tan](https://github.com/alex-tan))
+
+v0.5.0
+------
+
+- Fix Rails 5.1 deprecations [\#530](https://github.com/Apipie/apipie-rails/pull/530) ([@Onumis](https://github.com/Onumis) [@sedx](https://github.com/sedx))
+  - **This release is no longer compatible with Ruby 1.9.x**
+- Do not mutate strings passed as config options, fixes \#461 [\#537](https://github.com/Apipie/apipie-rails/pull/537) ([samphilipd](https://github.com/samphilipd))
+- Added recursion for documentation, fixed bug in examples with paperclip [\#531](https://github.com/Apipie/apipie-rails/pull/531) ([blddmnd](https://github.com/blddmnd))
+- Added locales/ja.yml for Japanese [\#529](https://github.com/Apipie/apipie-rails/pull/529) ([kikuchi0808](https://github.com/kikuchi0808))
+
+
+v0.4.0
+------
+
+- Rails 5 compatibility [\#527](https://github.com/Apipie/apipie-rails/pull/527) ([iNecas](https://github.com/iNecas)) [\#420](https://github.com/Apipie/apipie-rails/pull/420) ([buren](https://github.com/buren)) [\#473](https://github.com/Apipie/apipie-rails/pull/473)([domcleal](https://github.com/domcleal))
+  - **This release is no longer compatible with Rails 3.x**
+- Include delete request parmeters in generated documentation [\#524](https://github.com/Apipie/apipie-rails/pull/524) ([johnnaegle](https://github.com/johnnaegle))
+- Allow a blank, not just nil, base\_url. [\#521](https://github.com/Apipie/apipie-rails/pull/521) ([johnnaegle](https://github.com/johnnaegle))
+- Adds allow\_blank option [\#508](https://github.com/Apipie/apipie-rails/pull/508) ([MrLeebo](https://github.com/MrLeebo))
+- Boolean Validator uses \<code\> instead of ' [\#502](https://github.com/Apipie/apipie-rails/pull/502) ([berfarah](https://github.com/berfarah))
+- Fix type validator message [\#501](https://github.com/Apipie/apipie-rails/pull/501) ([cindygu-itglue](https://github.com/cindygu-itglue))
+- Add IT locale [\#496](https://github.com/Apipie/apipie-rails/pull/496) ([alepore](https://github.com/alepore))
+- Fix small typo on dsl\_definition data init [\#494](https://github.com/Apipie/apipie-rails/pull/494) ([begault](https://github.com/begault))
+- Localize app info message [\#491](https://github.com/Apipie/apipie-rails/pull/491) ([belousovAV](https://github.com/belousovAV))
+- Fix travis build [\#489](https://github.com/Apipie/apipie-rails/pull/489) ([mtparet](https://github.com/mtparet))
+- Handle blank data when parsing a example's response [\#453](https://github.com/Apipie/apipie-rails/pull/453) ([stbenjam](https://github.com/stbenjam))
+- Allow layouts to be overridable. Fixes a regression introduced in \#425. [\#447](https://github.com/Apipie/apipie-rails/pull/447) ([nilsojes](https://github.com/nilsojes))
+
+v0.3.7
+------
+
+- Handle blank data when parsing a example's response [\#453](https://github.com/Apipie/apipie-rails/pull/453) ([stbenjam](https://github.com/stbenjam))
+- Allow layouts to be overridable. Fixes a regression introduced in \#425. [\#447](https://github.com/Apipie/apipie-rails/pull/447) ([nilseriksson](https://github.com/nilseriksson))
 
 v0.3.6
 ------
@@ -70,7 +222,7 @@ v0.3.2
 v0.3.1
 ------
 
-* Support for ``api!`` keyword in concerns 
+* Support for ``api!`` keyword in concerns
   [#322](https://github.com/Apipie/apipie-rails/pull/322) [@iNecas][]
 * More explicit ordering of the static dispatcher middleware
   [#315](https://github.com/Apipie/apipie-rails/pull/315) [@iNecas][]

@@ -1,5 +1,6 @@
 require 'spec_helper'
 require 'fileutils'
+require "json-schema"
 
 describe Apipie::ApipiesController do
 
@@ -12,37 +13,37 @@ describe Apipie::ApipiesController do
     end
 
     it "succeeds on version details" do
-      get :index, :version => "2.0"
+      get :index, :params => { :version => "2.0" }
 
       assert_response :success
     end
 
     it "returns not_found on wrong version" do
-      get :index, :version => "wrong_version"
+      get :index, :params => { :version => "wrong_version" }
 
       assert_response :not_found
     end
 
     it "succeeds on resource details" do
-      get :index, :version => "2.0", :resource => "architectures"
+      get :index, :params => { :version => "2.0", :resource => "architectures" }
 
       assert_response :success
     end
 
     it "returns not_found on wrong resource" do
-      get :index, :version => "2.0", :resource => "wrong_resource"
+      get :index, :params => { :version => "2.0", :resource => "wrong_resource" }
 
       assert_response :not_found
     end
 
     it "succeeds on method details" do
-      get :index, :version => "2.0", :resource => "architectures", :method => "index"
+      get :index, :params => { :version => "2.0", :resource => "architectures", :method => "index" }
 
       assert_response :success
     end
 
     it "returns not_found on wrong method" do
-      get :index, :version => "2.0", :resource => "architectures", :method => "wrong_method"
+      get :index, :params => { :version => "2.0", :resource => "architectures", :method => "wrong_method" }
 
       assert_response :not_found
     end
@@ -130,6 +131,38 @@ describe Apipie::ApipiesController do
     end
   end
 
+  describe "GET index as swagger" do
+
+    let(:swagger_schema) do
+      File.read(File.join(File.dirname(__FILE__),"../lib/swagger/openapi_2_0_schema.json"))
+    end
+
+    it "outputs swagger when format is json and type is swagger" do
+      get :index, :params => { :format => "json", :type => "swagger"}
+
+      assert_response :success
+      expect(response.body).to match(/"swagger":"2.0"/)
+      # puts response.body
+
+      expect(JSON::Validator.validate(swagger_schema, response.body)).to be_truthy
+    end
+
+    it "does not output swagger when format is not json even if type is swagger" do
+      get :index, :params => { :type => "swagger"}
+
+      assert_response :success
+      expect(response.body).not_to match(/"swagger":"2.0"/)
+    end
+
+    it "does not output swagger when format is json even but type is not swagger" do
+      get :index, :params => { :format => "json"}
+
+      assert_response :success
+      expect(response.body).not_to match(/"swagger":"2.0"/)
+    end
+  end
+
+
   describe "authenticate user" do
     it "authenticate user if an authentication method is setted" do
       test = false
@@ -183,6 +216,11 @@ describe Apipie::ApipiesController do
       expect(assigns(:doc)[:resources]["users"][:methods].size).to eq(users_methods - 1)
       expect(assigns(:doc)[:resources]["twitter_example"][:methods].size).to eq(twitter_example_methods)
     end
+    it "does not allow access to swagger when authorization is set" do
+      get :index, :params => { :format => "json", :type => "swagger"}
+
+      assert_response :forbidden
+    end
   end
 
   describe "documentation cache" do
@@ -215,19 +253,21 @@ describe Apipie::ApipiesController do
     it "uses the file in cache dir instead of generating the content on runtime" do
       get :index
       expect(response.body).to eq("apidoc.html cache v1")
-      get :index, :version => 'v1'
+      get :index, :params => { :version => 'v1' }
       expect(response.body).to eq("apidoc.html cache v1")
-      get :index, :version => 'v2'
+      get :index, :params => { :version => 'v2' }
       expect(response.body).to eq("apidoc.html cache v2")
-      get :index, :version => 'v1', :format => "html"
+      get :index, :params => { :version => 'v1', :format => "html" }
       expect(response.body).to eq("apidoc.html cache v1")
-      get :index, :version => 'v1', :format => "json"
+      get :index, :params => { :version => 'v1', :format => "json" }
       expect(response.body).to eq("apidoc.json cache")
-      get :index, :version => 'v1', :format => "html", :resource => "resource"
+      get :index, :params => { :version => 'v1', :format => "html", :resource => "resource" }
       expect(response.body).to eq("resource.html cache")
-      get :index, :version => 'v1', :format => "html", :resource => "resource", :method => "method"
+      get :index, :params => { :version => 'v1', :format => "html", :resource => "resource", :method => "method" }
       expect(response.body).to eq("method.html cache")
     end
 
   end
+
+
 end
